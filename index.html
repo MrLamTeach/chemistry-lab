@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mr. L's HSC Chemistry Practicals</title>
+<meta name="description" content="Guided simulations of every NSW HSC Chemistry practical, for the 2017 and 2028 syllabuses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@600&display=swap">
+<style>
+:root { --bg: #f6f2ea; --surface: #fffdf8; --ink: #2a2620; --muted: #6c655a; --line: #e1d9ca; --accent: #243b62; --accent-soft: #e7e9ec; --accent-ink: #fffdf8;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+@media (prefers-color-scheme: dark) { :root { --bg: #1b1915; --surface: #24211c; --ink: #ede6da; --muted: #a9a194; --line: #38332b; --accent: #a3b9de; --accent-soft: #2a303b; --accent-ink: #1b1915; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); padding: 32px max(16px, env(safe-area-inset-left, 0px)) 48px max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 700 18px var(--f-display); }
+.mark { background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 4px 9px; font: 600 12px var(--f-mono); }
+h1 { font: 700 clamp(30px, 5vw, 46px)/1.08 var(--f-display); margin: 0; text-wrap: balance; }
+p.lead { color: var(--muted); font-size: 18px; margin: 10px 0 0; max-width: 60ch; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 640px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+a.card { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+a.card:hover, a.card:focus-visible { border-color: var(--accent); outline: none; }
+.pill { align-self: flex-start; font: 700 12px var(--f-body); color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 999px; padding: 3px 10px; }
+.card h2 { font: 700 24px var(--f-display); margin: 0; }
+.card p { margin: 0; color: var(--muted); }
+.go { margin-top: auto; padding-top: 8px; font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark">Mr. L</span>HSC Chemistry Practical Lab</div>
+  <div>
+    <h1>Guided simulations of every HSC Chemistry practical</h1>
+    <p class="lead">Choose the syllabus your class is studying. Each practical has a step-by-step simulation and a full practical guide.</p>
+  </div>
+  <div class="cards">
+    <a class="card" href="2017/"><span class="pill">2017 syllabus</span><h2>Chemistry Stage 6 (2017)</h2><p>Modules 1–8 · 37 practicals, including the Mohr and Volhard precipitation titrations.</p><span class="go">Open the 2017 site →</span></a>
+    <a class="card" href="2028/"><span class="pill">2028 syllabus</span><h2>Chemistry 11–12 (2025)</h2><p>Modules 1–7 · 42 practicals. Year 11 from Term 1 2028, Year 12 from Term 4 2028.</p><span class="go">Open the 2028 site →</span></a>
+  </div>
+</div>
+</body>
+</html>
