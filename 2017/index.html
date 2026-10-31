@@ -1607,6 +1607,42 @@ const L = (() => {
     g.beginPath(); g.arc(x, y + hgt + 4, 8, 0, 7); g.fill(); g.strokeStyle = css("--glass"); g.stroke();
   }
 
+
+  /* ---------- realistic apparatus helpers ---------- */
+  function conical(g, cx, by, w, st = {}) {
+    const nw = w * 0.22, h = w * 0.95, level = st.level ?? 0.35;
+    const path = () => { g.beginPath(); g.moveTo(cx - nw / 2, by - h); g.lineTo(cx - nw / 2, by - h * 0.62); g.lineTo(cx - w / 2, by - 4); g.quadraticCurveTo(cx - w / 2, by, cx - w / 2 + 6, by); g.lineTo(cx + w / 2 - 6, by); g.quadraticCurveTo(cx + w / 2, by, cx + w / 2, by - 4); g.lineTo(cx + nw / 2, by - h * 0.62); g.lineTo(cx + nw / 2, by - h); };
+    const top = by - h * level;
+    g.save(); path(); g.closePath(); g.clip();
+    if (st.liq) { g.fillStyle = rgb(st.liq, st.alpha ?? 0.85); g.fillRect(cx - w / 2, top, w, h); g.fillStyle = "rgba(255,255,255,.25)"; g.fillRect(cx - w / 2, top, w, 2); }
+    if (st.ppt && st.ppt.amt > 0) { g.fillStyle = rgb(st.ppt.col); g.fillRect(cx - w / 2, by - 8 * clamp(st.ppt.amt), w, 8); }
+    if (st.solid) { g.fillStyle = rgb(st.solid.col); const sw = st.solid.w ?? w * 0.3; g.fillRect(cx - sw / 2, by - (st.solid.h ?? 6), sw, st.solid.h ?? 6); }
+    if (st.bub) st.bub.draw(g);
+    g.restore();
+    g.strokeStyle = css("--glass"); g.lineWidth = 2.2; path(); g.stroke();
+    const neckTop = by - h;
+    if (st.stopper) { g.fillStyle = "rgb(150,95,70)"; g.beginPath(); g.moveTo(cx - nw / 2 - 3, neckTop - 8); g.lineTo(cx + nw / 2 + 3, neckTop - 8); g.lineTo(cx + nw / 2 - 1, neckTop + 12); g.lineTo(cx - nw / 2 + 1, neckTop + 12); g.closePath(); g.fill(); }
+    if (st.label) text(g, st.label, cx, by + 18, { size: 12 });
+    return { top, neckTop, nw, h, x0: cx - w * 0.32, x1: cx + w * 0.32 };
+  }
+  function tube2(g, pts, col) { g.strokeStyle = col || css("--glass"); g.lineWidth = 3; g.lineJoin = "round"; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+  function tripod(g, cx, topY, floorY, w = 70, gauze = true) {
+    g.strokeStyle = css("--muted"); g.lineWidth = 3; g.beginPath();
+    g.moveTo(cx - w, topY); g.lineTo(cx + w, topY);
+    g.moveTo(cx - w + 8, topY); g.lineTo(cx - w - 4, floorY); g.moveTo(cx + w - 8, topY); g.lineTo(cx + w + 4, floorY); g.moveTo(cx, topY); g.lineTo(cx, topY + 4);
+    g.stroke();
+    if (gauze) { g.fillStyle = "rgba(150,150,150,.55)"; g.fillRect(cx - w * 0.75, topY - 4, w * 1.5, 4); g.fillStyle = "rgba(230,230,225,.9)"; g.beginPath(); g.ellipse(cx, topY - 3, w * 0.28, 2.5, 0, 0, 7); g.fill(); }
+  }
+  function bunsen(g, cx, floorY, t, on = true, col = [110, 140, 255], s = 0.7) {
+    const top = floorY - 34;
+    if (on) flame(g, cx, top, s, col, t);
+    g.fillStyle = css("--glass"); g.fillRect(cx - 6, top, 12, 30); g.fillRect(cx - 22, floorY - 6, 44, 6);
+    g.fillStyle = css("--muted"); g.fillRect(cx - 9, floorY - 18, 18, 5);
+  }
+  function stand(g, x, floorY, topY, armY, armTo) {
+    g.fillStyle = css("--line"); g.fillRect(x - 40, floorY - 6, 90, 6); g.fillRect(x - 2, topY, 5, floorY - topY);
+    if (armY != null) { g.fillRect(x, armY - 3, armTo - x, 6); g.strokeStyle = css("--glass"); g.lineWidth = 2; g.strokeRect(armTo - 10, armY - 8, 20, 16); }
+  }
   /* ---------- chemistry engines ---------- */
   const Kw = 1e-14;
   // systems: [{C, Ka:[...], z0}] ; strongCat, strongAn in mol/L
@@ -1734,7 +1770,7 @@ const L = (() => {
     enter(0);
     return () => { mo.disconnect(); };
   }
-  return { fmtE, shuffle, guide, slug, sub, css, clamp, mix, rgb, rnd, pick, noise, fx, h, layout, group, slider, seg, select, check, row, btn, readouts, table, canvas, chart, loop, Bubbles, tube, beaker, flame, text, thermometer, pH, Kw, calTrace, extrapolate, wl2rgb };
+  return { conical, tube2, tripod, bunsen, stand, fmtE, shuffle, guide, slug, sub, css, clamp, mix, rgb, rnd, pick, noise, fx, h, layout, group, slider, seg, select, check, row, btn, readouts, table, canvas, chart, loop, Bubbles, tube, beaker, flame, text, thermometer, pH, Kw, calTrace, extrapolate, wl2rgb };
 })();
 
 /* ================= Module 1 ================= */
@@ -1899,15 +1935,15 @@ SIMS["2.1.1"] = host => {
     }
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H;
-    const fx = 30, fw = Math.min(140, W * 0.32), fy = H - 170;
-    const top = L.beaker(g, fx, fy, fw, 140, { liq: [205, 225, 235], level: 0.5, bub, label: "HCl(aq) + Mg" });
-    bub.step(dt, running ? 120 * (1 - prog) + 5 : 0, fx + fw * 0.3, fx + fw * 0.7, fy + 132, top);
+    const fw = Math.min(140, W * 0.3), fcx = 24 + fw / 2, fby = H - 34;
     const left = running || prog < 1 ? Math.max(0, mass - nMg() * 24.31 * prog * Math.min(1, nH2() / nMg())) : Math.max(0, mass - nH2() * 24.31);
-    if (left > 0.001 && (running || prog >= 1)) { g.fillStyle = "rgb(180,180,186)"; g.fillRect(fx + fw / 2 - 18 * Math.sqrt(left / 0.4) - 4, fy + 124, 36 * Math.sqrt(left / 0.4) + 8, 6); }
-    // stopper and tube
-    g.strokeStyle = L.css("--glass"); g.lineWidth = 3; g.beginPath(); g.moveTo(fx + fw / 2, fy + 5); g.lineTo(fx + fw / 2, fy - 30); g.lineTo(fx + fw + 40, fy - 30); g.stroke();
+    const showMg = left > 0.001 && (running || prog >= 1);
+    const fl = L.conical(g, fcx, fby, fw, { liq: [205, 225, 235], level: 0.32, bub, stopper: true, label: "HCl(aq) + Mg", solid: showMg ? { col: [180, 180, 186], w: 36 * Math.sqrt(left / 0.4) + 8, h: 5 } : null });
+    bub.step(dt, running ? 120 * (1 - prog) + 5 : 0, fl.x0 + 10, fl.x1 - 10, fby - 6, fl.top);
+    // delivery tube through the stopper into the gas syringe
+    const sx = fcx + fw / 2 + 50, sw = Math.max(120, W - sx - 30), sy = fl.neckTop - 70;
+    L.tube2(g, [[fcx, fl.neckTop + 8], [fcx, sy + 18], [sx, sy + 18]]);
     // syringe
-    const sx = fx + fw + 40, sw = Math.max(120, W - sx - 30), sy = fy - 48;
     g.lineWidth = 2; g.strokeRect(sx, sy, sw, 36);
     const f = L.clamp(Vnow / 300);
     g.fillStyle = "rgba(160,200,230,.35)"; g.fillRect(sx, sy, sw * f, 36);
@@ -1963,7 +1999,7 @@ SIMS["2.2.1"] = host => {
     if (kind === "bu" && open) { Vgas = Math.min(240, Vgas + 25 * dt); mGas = Vgas / Vm * 58.12 * 1.004; update(); if (Vgas >= 240) { open = false; go.textContent = "Hold lighter open"; update(); } }
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H;
-    const tx = 20, tw = W - 40, ty = H - 110;
+    const tx = kind === "bu" ? 20 : Math.max(150, W * 0.36), tw = W - 20 - tx, ty = H - 110;
     g.fillStyle = "rgba(150,195,230,.35)"; g.fillRect(tx, ty + 20, tw, 80);
     g.strokeStyle = L.css("--glass"); g.lineWidth = 2; g.strokeRect(tx, ty, tw, 100);
     const cx = W * 0.62, cw = 46, ch = 200, cy = ty + 90 - ch;
@@ -1971,7 +2007,7 @@ SIMS["2.2.1"] = host => {
     g.fillStyle = "rgba(150,195,230,.45)"; g.fillRect(cx, cy + ch * gasF, cw, ch * (1 - gasF));
     g.strokeRect(cx, cy, cw, ch);
     for (let v = 0; v <= 250; v += 50) { const y = cy + ch * v / 250; g.fillStyle = L.css("--muted"); g.fillRect(cx + cw, y, 6, 1); L.text(g, v, cx + cw + 22, y + 4, { size: 10, mono: true, muted: true }); }
-    L.text(g, "measuring cylinder (mL)", cx + cw / 2, cy - 8, { size: 11, muted: true });
+    L.text(g, "inverted measuring cylinder (mL)", cx + cw / 2, cy - 8, { size: 11, muted: true });
     const active = (kind === "mg" && reacting) || (kind === "bu" && open);
     bub.step(dt, active ? 40 : 0, cx + 10, cx + cw - 10, ty + 92, cy + ch * gasF);
     bub.draw(g, "rgba(255,255,255,.9)");
@@ -1979,9 +2015,9 @@ SIMS["2.2.1"] = host => {
       const lx = cx - 50; g.fillStyle = "rgb(200,60,50)"; g.fillRect(lx - 14, ty + 40, 28, 54); g.fillStyle = L.css("--muted"); g.fillRect(lx - 4, ty + 28, 8, 14);
       L.text(g, "lighter", lx, ty + 125, { size: 11, muted: true });
     } else {
-      const fx = W * 0.15; g.strokeStyle = L.css("--glass"); g.beginPath(); g.moveTo(fx, ty - 80); g.lineTo(fx, ty - 30); g.lineTo(fx - 30, ty + 10); g.lineTo(fx + 70, ty + 10); g.lineTo(fx + 40, ty - 30); g.lineTo(fx + 40, ty - 80); g.stroke();
-      g.beginPath(); g.moveTo(fx + 20, ty - 80); g.lineTo(fx + 20, ty - 110); g.lineTo(cx + cw / 2, ty - 110); g.lineTo(cx + cw / 2, ty + 85); g.stroke();
-      L.text(g, "Mg + excess HCl", fx + 20, ty + 30, { size: 11, muted: true });
+      const fcx = Math.max(55, tx - 85), fl = L.conical(g, fcx, ty - 8, 80, { liq: [205, 225, 235], level: 0.3, stopper: true });
+      L.tube2(g, [[fcx, fl.neckTop + 6], [fcx, fl.neckTop - 18], [tx + 24, fl.neckTop - 18], [tx + 24, ty + 94], [cx + cw / 2, ty + 94], [cx + cw / 2, ty + 84]]);
+      L.text(g, "Mg + excess HCl", fcx, fl.neckTop - 26, { size: 11, muted: true });
     }
   });
   ui.task("Measure both substances with the corrections on and check your error. Then switch off <b>Subtract water vapour pressure</b>. Does the molar mass go up or down, and why?");
@@ -2025,8 +2061,10 @@ SIMS["2.2.2"] = host => {
     heating = Math.max(0, heating - dt);
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H, cx = W / 2, cy = H - 120;
-    g.strokeStyle = L.css("--glass"); g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 70, cy + 30); g.lineTo(cx + 70, cy + 30); g.moveTo(cx - 60, cy + 30); g.lineTo(cx - 70, H - 10); g.moveTo(cx + 60, cy + 30); g.lineTo(cx + 70, H - 10); g.stroke();
-    if (heating > 0) L.flame(g, cx, H - 10, 1.0, [110, 140, 255], t);
+    L.bunsen(g, cx, H - 4, t, heating > 0, [110, 140, 255], 0.75);
+    L.tripod(g, cx, cy + 30, H - 4, 70, false);
+    g.strokeStyle = "rgb(225,215,200)"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 44, cy + 30); g.lineTo(cx, cy + 22); g.lineTo(cx + 44, cy + 30); g.stroke();
+    L.text(g, "pipe-clay triangle", cx + 120, cy + 34, { size: 10, muted: true });
     g.fillStyle = L.css("--sunk"); g.strokeStyle = L.css("--glass"); g.lineWidth = 2;
     g.beginPath(); g.moveTo(cx - 40, cy - 30); g.lineTo(cx - 28, cy + 28); g.lineTo(cx + 28, cy + 28); g.lineTo(cx + 40, cy - 30); g.closePath(); g.fill(); g.stroke();
     const grey = [150, 150, 158], white = [240, 240, 236], c = L.mix(grey, white, conv);
@@ -2036,7 +2074,7 @@ SIMS["2.2.2"] = host => {
     const ly = lid === "off" ? cy - 70 : lid === "lift" && heating > 0 ? cy - 40 - 8 * Math.abs(Math.sin(t * 3)) : cy - 34;
     g.fillStyle = L.css("--sunk"); g.fillRect(cx - 44, ly, 88, 6); g.strokeRect(cx - 44, ly, 88, 6);
     if (lid !== "closed" && heating > 0) { g.fillStyle = "rgba(240,240,240,.5)"; for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(cx + Math.sin(t * 2 + i) * 20, cy - 40 - ((t * 40 + i * 20) % 90), 6, 0, 7); g.fill(); } }
-    L.text(g, `Balance: ${mass().toFixed(3)} g`, cx, 22, { size: 14, mono: true, weight: 600 });
+    L.text(g, `Last weighing (after cooling): ${mass().toFixed(3)} g`, cx, 22, { size: 14, mono: true, weight: 600 });
   });
   ui.task("Heat with the lid lifted briefly until two weighings agree. What is the Mg : O ratio? Repeat with the lid left off, then kept closed, and explain each result.");
   reset(0.24);
@@ -2080,14 +2118,15 @@ SIMS["2.3.1"] = host => {
   }
   const stop = L.loop((dt, t) => {
     if (!cv.ensure()) return;
-    const g = cv.g, W = cv.W, H = cv.H, cx = W / 2, cy = H - 90;
-    L.flame(g, cx, H - 5, 0.7, [110, 140, 255], t);
+    const g = cv.g, W = cv.W, H = cv.H, cx = W / 2, cy = H - 116;
+    L.bunsen(g, cx, H - 4, t, true, [110, 140, 255], 0.6);
+    L.tripod(g, cx, cy + 26, H - 4, 80, true);
     g.strokeStyle = L.css("--glass"); g.lineWidth = 2.5; g.beginPath(); g.ellipse(cx, cy, 80, 24, 0, 0, Math.PI); g.stroke();
     g.beginPath(); g.moveTo(cx - 80, cy); g.lineTo(cx + 80, cy); g.stroke();
     if (water > 0) { g.fillStyle = "rgba(150,195,230,.55)"; g.beginPath(); g.ellipse(cx, cy + 2, 76 * Math.sqrt(water / Va), 18 * Math.sqrt(water / Va), 0, 0, Math.PI); g.fill(); }
     if (water < Va * 0.3) { g.fillStyle = "rgba(245,245,245,.95)"; g.beginPath(); g.ellipse(cx, cy + 14, 50, 8, 0, 0, 7); g.fill(); }
     if (water > 0) for (let i = 0; i < 5; i++) { g.fillStyle = "rgba(200,200,200,.3)"; g.beginPath(); g.arc(cx - 40 + i * 20, cy - 20 - ((t * 25 + i * 17) % 60), 7, 0, 7); g.fill(); }
-    L.text(g, "evaporating dish", cx, cy + 46, { size: 11, muted: true });
+    L.text(g, "evaporating dish on gauze", cx + 150, cy + 10, { size: 11, muted: true });
   });
   ui.task("Find the concentration by heating gently until two weighings agree. Then repeat with strong heating and compare your answers. Which is more accurate?");
   start();
@@ -2405,20 +2444,25 @@ SIMS["3.2.5"] = host => {
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H, bw = Math.min(130, W * 0.3), lx = W * 0.25 - bw / 2, rx_ = W * 0.75 - bw / 2, by = H - 150;
     const an = E[a] < E[b] ? a : b, flowing = bridge && a !== b;
+    // salt bridge drawn first so the solution and beaker walls sit over its submerged ends
+    if (bridge) {
+      const yTop = by - 22, yEnd = by + 100, xl = lx + bw * 0.8, xr = rx_ + bw * 0.2;
+      g.strokeStyle = "rgb(222,212,180)"; g.lineWidth = 12; g.lineJoin = "round"; g.beginPath(); g.moveTo(xl, yEnd); g.lineTo(xl, yTop); g.lineTo(xr, yTop); g.lineTo(xr, yEnd); g.stroke();
+      L.text(g, "salt bridge: filter paper soaked in KNO₃(aq)", W / 2, yTop - 12, { size: 11, muted: true });
+    }
     [[a, lx], [b, rx_]].forEach(([m, x]) => {
       L.beaker(g, x, by, bw, 130, { liq: SOL[m], level: 0.65, label: `${m} in ${ion(m)}(aq)` });
-      g.fillStyle = L.rgb(COL[m]); g.fillRect(x + bw / 2 - 8, by - 60, 16, 150);
+      g.fillStyle = L.rgb(COL[m]); g.fillRect(x + bw / 2 - 8, by - 60, 16, 175);
     });
     g.strokeStyle = L.css("--ink"); g.lineWidth = 2; g.beginPath();
     g.moveTo(lx + bw / 2, by - 60); g.lineTo(lx + bw / 2, 40); g.lineTo(W / 2 - 34, 40); g.moveTo(W / 2 + 34, 40); g.lineTo(rx_ + bw / 2, 40); g.lineTo(rx_ + bw / 2, by - 60); g.stroke();
     g.fillStyle = L.css("--sunk"); g.strokeStyle = L.css("--glass"); g.fillRect(W / 2 - 34, 20, 68, 40); g.strokeRect(W / 2 - 34, 20, 68, 40);
     L.text(g, a === b || !bridge ? "0.00 V" : ((E[a] < E[b] ? E[b] - E[a] : E[a] - E[b]) * noise).toFixed(2) + " V", W / 2, 45, { mono: true, size: 13, weight: 600 });
-    if (bridge) { g.strokeStyle = "rgb(235,230,210)"; g.lineWidth = 10; g.beginPath(); g.moveTo(lx + bw * 0.8, by + 30); g.lineTo(lx + bw * 0.8, by - 20); g.lineTo(rx_ + bw * 0.2, by - 20); g.lineTo(rx_ + bw * 0.2, by + 30); g.stroke(); L.text(g, "salt bridge (KNO₃)", W / 2, by - 30, { size: 11, muted: true }); }
     if (flowing) {
       const fromX = an === a ? lx + bw / 2 : rx_ + bw / 2, toX = an === a ? rx_ + bw / 2 : lx + bw / 2;
       g.fillStyle = "rgb(250,200,40)";
       for (let i = 0; i < 8; i++) { const f = ((t * 0.35 + i / 8) % 1); const x = fromX + (toX - fromX) * f; g.beginPath(); g.arc(Math.abs(toX - fromX) * f > Math.abs(toX - fromX) * 0.5 ? x : x, 40, 4, 0, 7); g.fill(); }
-      L.text(g, "e⁻ flow →", an === a ? W * 0.32 : W * 0.68, 76, { size: 11, muted: true });
+      L.text(g, an === a ? "e⁻ flow →" : "← e⁻ flow", W / 2, 76, { size: 11, muted: true });
     }
   });
   ui.task("Find the pair of half-cells with the largest voltage, and the pair with the smallest. Predict each reading from the E° table before you build it.");
@@ -2427,7 +2471,7 @@ SIMS["3.2.5"] = host => {
 };
 
 SIMS["3.3.1"] = host => {
-  const ui = L.layout(host); const cv = L.canvas(ui.stage, 220);
+  const ui = L.layout(host); const cv = L.canvas(ui.stage, 260);
   let rxn = "marble", T = 25, c = 1.0, area = "chips", cat = "none", runs = [], live = null;
   const bub = new L.Bubbles();
   const box = L.h("div", "");
@@ -2474,11 +2518,22 @@ SIMS["3.3.1"] = host => {
     const cur = live || runs[runs.length - 1];
     if (cur) { ro.set("vf", cur.Vf.toFixed(0) + " mL"); ro.set("r0", (cur.Vf * cur.k).toFixed(1) + " mL s⁻¹"); ro.set("half", (Math.log(2) / cur.k).toFixed(0) + " s"); }
     if (!cv.ensure()) return;
-    const g = cv.g, W = cv.W, H = cv.H, fx = W / 2 - 60;
+    const g = cv.g, W = cv.W, H = cv.H, fcx = Math.max(80, W * 0.2), fby = H - 26, fw = 130;
     const rate = live ? live.Vf * live.k * Math.exp(-live.k * live.t) : 0;
-    const top = L.beaker(g, fx, H - 160, 120, 140, { liq: rxn === "marble" ? [214, 230, 238] : [205, 220, 235], level: 0.55, bub, label: rxn === "marble" ? "CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂" : "2H₂O₂ → 2H₂O + O₂" });
-    bub.step(dt, Math.min(200, rate * 6), fx + 15, fx + 105, H - 25, top);
-    if (rxn === "marble") { g.fillStyle = "rgb(240,240,235)"; const n = area === "powder" ? 30 : area === "small" ? 8 : 3, s = area === "powder" ? 3 : area === "small" ? 8 : 14; for (let i = 0; i < n; i++) g.fillRect(fx + 15 + (i * 37 % 90), H - 22 - s, s, s); }
+    const fl = L.conical(g, fcx, fby, fw, { liq: rxn === "marble" ? [214, 230, 238] : [205, 220, 235], level: 0.32, bub, stopper: true, label: rxn === "marble" ? "CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂" : "2H₂O₂ → 2H₂O + O₂" });
+    bub.step(dt, Math.min(200, rate * 6), fl.x0 + 8, fl.x1 - 8, fby - 6, fl.top);
+    if (rxn === "marble") { g.fillStyle = "rgb(240,240,235)"; g.strokeStyle = "rgba(0,0,0,.15)"; const n = area === "powder" ? 30 : area === "small" ? 8 : 3, s = area === "powder" ? 3 : area === "small" ? 8 : 14; for (let i = 0; i < n; i++) { const x = fcx - 40 + (i * 37 % 80); g.fillRect(x, fby - 2 - s, s, s); } }
+    else if (cat !== "none") { g.fillStyle = cat === "mno2" ? "rgb(40,36,34)" : "rgb(120,40,40)"; g.fillRect(fcx - 20, fby - 6, 40, 5); }
+    // gas syringe
+    const Vg = live ? live.pts[live.pts.length - 1][1] : 0;
+    const sx = fcx + fw / 2 + 40, sw = Math.max(110, W - sx - 26), sy = fl.neckTop - 60, cap = 400;
+    L.tube2(g, [[fcx, fl.neckTop + 8], [fcx, sy + 16], [sx, sy + 16]]);
+    g.strokeStyle = L.css("--glass"); g.lineWidth = 2; g.strokeRect(sx, sy, sw, 32);
+    const f = L.clamp(Vg / cap);
+    g.fillStyle = "rgba(160,200,230,.35)"; g.fillRect(sx, sy, sw * f, 32);
+    g.fillStyle = L.css("--muted"); g.fillRect(sx + sw * f - 3, sy - 4, 6, 40); g.fillRect(sx + sw * f, sy + 13, sw * (1 - f) + 16, 6);
+    for (let v = 0; v <= cap; v += 100) { const x = sx + sw * v / cap; g.fillStyle = L.css("--muted"); g.fillRect(x, sy + 32, 1, 6); L.text(g, v, x, sy + 50, { size: 10, mono: true, muted: true }); }
+    L.text(g, "gas syringe (mL)", sx + sw / 2, sy - 10, { size: 11, muted: true });
   });
   ui.task("Change one variable at a time and overlay the runs. Which factors change the <i>final</i> volume, and which only change how fast you get there?");
   build(); draw();
@@ -2648,6 +2703,8 @@ function TitrationSim(host, cfg) {
     lastFlash = Math.max(0, lastFlash - dt * 1.5);
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H, bx = W / 2;
+    L.stand(g, bx - 90, H - 4, 8, 70, bx - 10);
+    g.fillStyle = "rgba(255,255,255,.95)"; g.strokeStyle = L.css("--line"); g.lineWidth = 1; g.fillRect(bx - 80, H - 12, 160, 8); g.strokeRect(bx - 80, H - 12, 160, 8);
     drawBurette(g, bx, 10, 200, Vb);
     drops.forEach(d => d.y += 400 * dt); drops = drops.filter(d => d.y < 70);
     g.fillStyle = "rgba(150,190,225,.9)"; drops.forEach(d => { g.beginPath(); g.arc(bx, 215 + d.y, 3, 0, 7); g.fill(); });
@@ -2655,7 +2712,7 @@ function TitrationSim(host, cfg) {
     let col = indColour(ind, pH);
     if (lastFlash > 0) col = L.mix(col, indColour(ind, local), lastFlash * 0.6);
     drawFlask(g, bx, H - 12, 120, col, 0.32 + Vb / 200);
-    L.text(g, cfg.flaskLabel, bx, H - 2 + 0, { size: 0 });
+    L.text(g, "white tile", bx + 120, H - 4, { size: 10, muted: true });
   });
   ui.task(cfg.task);
   newSample(true);
@@ -2998,10 +3055,14 @@ SIMS["6.2.3"] = host => {
       const x = W * (i ? 0.58 : 0.12), w = W * 0.3;
       if (pair !== "acid") bub[i].b.length = 0;
       const top = L.beaker(g, x, 70, w, 130, { liq: indColour("uni", p[i]), level: 0.6, bub: bub[i], label: i ? (pair === "acid" ? "CH₃COOH" : "NH₃") : (pair === "acid" ? "HCl" : "NaOH") });
-      if (pair === "acid") { const Hh = Math.pow(10, -p[i]), HA = Math.max(0, c - Hh); bub[i].step(dt, 240 * (Hh + 0.12 * HA) / 0.1, x + w * 0.3, x + w * 0.7, 196, top); g.fillStyle = "rgb(170,170,176)"; g.fillRect(x + w * 0.35, 194, w * 0.3, 5); }
+      if (pair === "acid") { const Hh = Math.pow(10, -p[i]), HA = Math.max(0, c - Hh); bub[i].step(dt, 240 * (Hh + 0.12 * HA) / 0.1, x + w * 0.3, x + w * 0.7, 196, top); g.fillStyle = "rgb(170,170,176)"; g.fillRect(x + w * 0.12, 194, w * 0.2, 5); }
+      // electrodes dipping into the solution, wired to the bulb
+      const e1 = x + w * 0.4, e2 = x + w * 0.6;
+      g.strokeStyle = L.css("--ink"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + w / 2 - 10, 42); g.lineTo(e1, 54); g.lineTo(e1, 62); g.moveTo(x + w / 2 + 10, 42); g.lineTo(e2, 54); g.lineTo(e2, 62); g.stroke();
+      g.fillStyle = "rgb(60,62,66)"; g.fillRect(e1 - 3, 60, 6, 120); g.fillRect(e2 - 3, 60, 6, 120);
       const cond = L.clamp((pair === "acid" ? Math.pow(10, -p[i]) : Math.pow(10, p[i] - 14)) / 0.1);
       g.fillStyle = `rgba(255,220,80,${0.15 + 0.85 * Math.sqrt(cond)})`; g.beginPath(); g.arc(x + w / 2, 35, 14, 0, 7); g.fill(); g.strokeStyle = L.css("--glass"); g.stroke();
-      L.text(g, "conductivity", x + w / 2, 62, { size: 10, muted: true });
+      L.text(g, "conductivity", x + w / 2 + 44, 40, { size: 10, muted: true });
     });
   });
   ui.task("At 0.1 M, compare the two pH values, the bulb brightness and the bubbling with magnesium. Now dilute tenfold: how much does each pH change?");
@@ -3166,13 +3227,14 @@ SIMS["7.4.3"] = host => {
     if (burning > 0) { burning += dt; if (burning > 3) { burning = 0; record(); } }
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H, cx = W * 0.4;
+    L.stand(g, cx - 110, H - 4, 30, 110, cx - 40);
     g.fillStyle = L.css("--glass"); g.fillRect(cx - 26, H - 40, 52, 30); g.fillRect(cx - 4, H - 52, 8, 12);
     if (burning > 0) L.flame(g, cx, H - 52, 0.9, ai >= 2 ? [250, 190, 70] : [140, 160, 255], t);
     g.fillStyle = "rgb(190,195,200)"; g.fillRect(cx - 40, 70, 80, 90); g.fillStyle = "rgba(150,195,230,.6)"; g.fillRect(cx - 36, 90, 72, 66);
     if (burning > 0 && ai >= 2) { g.fillStyle = "rgba(30,30,30,.4)"; g.fillRect(cx - 40, 152, 80, 8); }
     if (shield) { g.strokeStyle = L.css("--muted"); g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 70, H - 10); g.lineTo(cx - 70, 60); g.moveTo(cx + 70, H - 10); g.lineTo(cx + 70, 60); g.stroke(); g.fillStyle = L.css("--muted"); g.fillRect(cx - 44, 62, 88, 6); }
     L.thermometer(g, cx + 20, 20, 120, 22 + (burning > 0 ? burning * 5 : 0), 0, 60);
-    L.text(g, "spirit burner", cx, H - 0, { size: 0 });
+    L.text(g, "spirit burner", cx + 70, H - 20, { size: 11, muted: true }); L.text(g, "copper can", cx + 70, 120, { size: 11, muted: true });
     L.text(g, "ΔHc = −mcΔT / n", W * 0.8, 60, { mono: true, size: 12, muted: true });
   });
   ui.task("Burn all five alcohols without the shield, then with it. Does ΔHc change by a constant amount per CH₂? Why are all your values smaller than the data book's?");
@@ -3209,9 +3271,9 @@ SIMS["7.4.5"] = host => {
     if (!cv.ensure()) return;
     const g = cv.g, W = cv.W, H = cv.H;
     const rate = live && live.yeast ? act(live.T) * (1 - live.P) * 80 : 0;
-    const top = L.beaker(g, 30, 70, 130, 150, { liq: L.mix([235, 225, 190], [220, 200, 150], cur ? cur.P : 0), level: 0.65, bub, label: "C₆H₁₂O₆ → 2C₂H₅OH + 2CO₂" });
-    bub.step(dt, rate, 50, 140, 215, top);
-    g.strokeStyle = L.css("--glass"); g.lineWidth = 2.5; g.beginPath(); g.moveTo(95, 70); g.lineTo(95, 40); g.lineTo(W - 80, 40); g.lineTo(W - 80, 180); g.stroke();
+    const fl = L.conical(g, 100, H - 30, 140, { liq: L.mix([235, 225, 190], [220, 200, 150], cur ? cur.P : 0), level: 0.4, bub, stopper: true, label: "C₆H₁₂O₆ → 2C₂H₅OH + 2CO₂" });
+    bub.step(dt, rate, fl.x0 + 8, fl.x1 - 8, H - 36, fl.top);
+    L.tube2(g, [[100, fl.neckTop + 8], [100, 40], [W - 80, 40], [W - 80, 196]]);
     const milky = L.clamp(cur ? cur.P * cur.glu / 10 : 0);
     L.tube(g, W - 102, 110, 44, 100, { liq: L.mix([215, 230, 238], [245, 245, 245], milky), level: 0.7, cloud: { col: [250, 250, 250], amt: milky * 0.8 }, label: "limewater" });
   });
@@ -3279,7 +3341,9 @@ SIMS["7.5.3"] = host => {
     g.strokeStyle = L.css("--glass"); g.lineWidth = 2.2; g.beginPath(); g.arc(cx, H - 80, 42, -Math.PI / 2 + 0.25, 3 * Math.PI / 2 - 0.25); g.stroke();
     g.strokeRect(cx - 10, 20, 20, H - 140); g.strokeRect(cx - 22, 40, 44, H - 190);
     g.fillStyle = "rgba(120,180,230,.35)"; g.fillRect(cx - 21, 41, 42, H - 192);
-    L.text(g, "water out ↑", cx + 70, 50, { size: 11, muted: true }); L.text(g, "water in ↑", cx + 70, H - 150, { size: 11, muted: true });
+    L.tube2(g, [[cx + 22, 52], [cx + 44, 52]]); L.tube2(g, [[cx + 22, H - 162], [cx + 44, H - 162]]);
+    L.text(g, "water out", cx + 76, 56, { size: 11, muted: true }); L.text(g, "water in", cx + 72, H - 158, { size: 11, muted: true });
+    L.stand(g, cx - 110, H - 4, 20, H - 126, cx - 12);
     if (heating) { g.fillStyle = "rgba(220,220,220,.5)"; for (let i = 0; i < 5; i++) { const y = H - 120 - ((t * 60 + i * 30) % 130); g.beginPath(); g.arc(cx + Math.sin(t * 3 + i) * 3, y, 3, 0, 7); g.fill(); } }
     L.text(g, "condenser", cx - 60, H / 2 - 20, { size: 11, muted: true });
   });
